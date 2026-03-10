@@ -1,50 +1,26 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Project Constitution: High-Performance Auction API
 
-## Core Principles
+## 1. Executive Summary
+A headless, high-concurrency GraphQL API built with Laravel, MySQL, and Redis. The system is designed to handle thousands of real-time bid mutations by using Redis as a high-speed buffer and Pusher for GraphQL Subscriptions.
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+## 2. API Architecture (The "Speed-Path")
+- **Transport:** GraphQL (Lighthouse / GraphQL-Laravel).
+- **Validation Layer:** Redis-based Atomic Locks (`Cache::lock`) to prevent MySQL deadlocks.
+- **State Store:** Redis (Fast-access current bid and timer).
+- **Audit Store:** MySQL (Permanent, immutable logs of every bid event).
+- **Signals:** WebSockets via Pusher for real-time Subscriptions.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+## 3. Database & Cache Design (MySQL + Redis)
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+- **MySQL Engine:** InnoDB with `B-Tree` indexing on `auction_id` and `created_at`.
+- **Redis Key Strategy:** `auction:{id}:current_price` and `auction:{id}:lock`.
+- **Integrity Rule:** Every successful Mutation must trigger a background `SyncToDatabase` job.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+## 4. GraphQL Implementation Standards
+- **Mutations:** Must be "Idempotent" where possible.
+- **Subscriptions:** Every `placeBid` mutation must trigger a `BidUpdated` subscription.
+- **Errors:** Standardized GraphQL error codes for `LOW_BID`, `AUCTION_CLOSED`, and `RATE_LIMIT_EXCEEDED`.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
-
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
-
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
-
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
-
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+## 5. Performance Mandates
+- **Memory First:** No `SELECT` queries to MySQL during the `placeBid` resolver.
+- **Async Logging:** Use `dispatch_after_response()` for all MySQL `INSERT` operations.

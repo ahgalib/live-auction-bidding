@@ -9,3 +9,65 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+:root {
+    --auction-bg-a: #0b1422;
+    --auction-bg-b: #1a0f2d;
+    --auction-bg-c: #36161b;
+}
+
+body {
+    min-height: 100vh;
+    background: radial-gradient(1200px 700px at 15% 0%, #13324f 0%, transparent 60%),
+        radial-gradient(900px 500px at 85% 100%, #4c1f1f 0%, transparent 50%),
+        linear-gradient(145deg, var(--auction-bg-a), var(--auction-bg-b) 45%, var(--auction-bg-c));
+    color: #f8fafc;
+}
+
+.auction-shell {
+    min-height: 100vh;
+    position: relative;
+}
+
+.auth-input {
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    background: rgb(15 23 42 / 0.8);
+    border: 1px solid rgb(148 163 184 / 0.35);
+    padding: 0.5rem 0.75rem;
+}
+
+.auth-btn {
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    background: linear-gradient(90deg, #34d399, #06b6d4);
+    color: #04222c;
+    font-weight: 700;
+}
+
+.quick-bid {
+    height: 2.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgb(253 186 116 / 0.4);
+    background: rgb(255 255 255 / 0.05);
+    font-weight: 700;
+}
+
+.quick-bid:disabled {
+    opacity: 0.4;
+}
+
+.price-slide-enter-active,
+.price-slide-leave-active {
+    transition: all 220ms ease;
+}
+
+.price-slide-enter-from {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.price-slide-leave-to {
+    opacity: 0;
+    transform: translateY(-10px);
+}
