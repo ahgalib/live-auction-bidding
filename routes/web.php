@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\GraphqlController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -9,3 +10,6 @@ Route::get('/', function () {
 Route::get('/auction/{auctionId}', function (int $auctionId) {
     return view('auction-room', ['auctionId' => $auctionId]);
 });
+
+Route::post('/graphql', GraphqlController::class)
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);

@@ -1,0 +1,59 @@
+type Query {
+  auction(id: ID!): Auction
+  serverTime: ServerTimePayload!
+  me: User
+}
+
+type Mutation {
+  register(name: String!, email: String!, password: String!): User!
+  login(email: String!, password: String!): AuthToken!
+  oauthToken(
+    grantType: String!
+    clientId: Int!
+    clientSecret: String!
+    username: String!
+    password: String!
+    scope: String
+  ): AuthToken!
+  placeBid(auctionId: ID!, amount: Float!, requestId: String): PlaceBidResult!
+  withdrawBid(auctionId: ID!, reason: String): WithdrawBidResult!
+  logout: Boolean!
+}
+
+type Auction {
+  id: ID!
+  currentPrice: Float!
+  currentWinnerId: ID
+  endTime: String
+  status: String!
+}
+
+type ServerTimePayload {
+  serverTimeUtc: String!
+}
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  isAdmin: Boolean
+}
+
+type AuthToken {
+  access_token: String!
+  token_type: String!
+  expires_in: Int!
+}
+
+type PlaceBidResult {
+  accepted: Boolean!
+  currentPrice: Float!
+  endTime: String!
+  errorCode: String
+}
+
+type WithdrawBidResult {
+  success: Boolean!
+  restoredPrice: Float!
+  restoredWinnerId: ID
+}

@@ -1,0 +1,6 @@
+projectKey=Live-Auction
+serverUrl=http://localhost:9000
+serverVersion=26.3.0.120487
+dashboardUrl=http://localhost:9000/dashboard?id=Live-Auction
+ceTaskId=bf42c4e6-1ff3-4b1b-8c67-9210c7b98a6f
+ceTaskUrl=http://localhost:9000/api/ce/task?id=bf42c4e6-1ff3-4b1b-8c67-9210c7b98a6f

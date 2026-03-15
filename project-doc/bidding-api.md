@@ -1,4 +1,4 @@
-# Bidding API Behavior
+# Bidding API Behavior (GraphQL First)
 
 ## Bid Rejection Semantics
 - `LOW_BID`: Submitted amount is less than or equal to current live amount.
@@ -6,21 +6,26 @@
 - `RATE_LIMIT_EXCEEDED`: Reserved code for upstream rate-control rules.
 
 ## Time Synchronization Guidance
-- Use `GET /api/server-time` to calculate server-client offset.
+- Use `query ServerTime` to calculate server-client offset.
 - Client countdown should be computed as:
   - `remaining = end_time_utc - (local_time_utc + offset)`
 - Refresh server-time offset periodically to keep countdowns accurate.
 
-## Core Endpoints
-- `POST /api/register`
-- `POST /api/login`
-- `POST /api/oauth/token` (OAuth2 password grant)
-- `GET /api/me` (Bearer token required)
-- `POST /api/logout` (Bearer token required)
-- `POST /api/auctions/{auction}/bid`
-- `POST /api/auctions/{auction}/withdraw-bid`
-- `GET /api/auctions/{auction}`
-- `GET /api/server-time`
+## GraphQL Endpoint
+- `POST /graphql`
+
+## Core Operations
+- `query AuctionState($id: ID!)`
+- `query ServerTime`
+- `mutation Register($name: String!, $email: String!, $password: String!)`
+- `mutation Login($email: String!, $password: String!)`
+- `mutation OAuthToken(...)`
+- `query Me` (Bearer token required)
+- `mutation Logout` (Bearer token required)
+- `mutation PlaceBid($auctionId: ID!, $amount: Float!, $requestId: String)`
+- `mutation WithdrawBid($auctionId: ID!, $reason: String)` (admin only)
+
+Legacy REST endpoints in `routes/api.php` are compatibility-only and should be phased out.
 
 ## OAuth2 Password Grant Example
 ```json
