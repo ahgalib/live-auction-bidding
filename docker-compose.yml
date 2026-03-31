@@ -1,0 +1,94 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: auction-backend
+    working_dir: /var/www/html
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: VelocityAuction
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: auction_db
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      REDIS_CLIENT: predis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - ./:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: >
+      sh -c "if [ ! -f .env ]; then cp .env.example .env; fi
+      && composer install --no-interaction --prefer-dist --no-progress
+      && if ! grep -q '^APP_KEY=base64:' .env; then php artisan key:generate --force; fi
+      && php artisan migrate --force
+      && php artisan db:seed --force
+      && php artisan serve --host=0.0.0.0 --port=8000"
+
+  frontend:
+    build:
+      context: ../front-end
+      dockerfile: ../test-project-1/Dockerfile.frontend
+    container_name: auction-frontend
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_APP_NAME: VelocityAuction
+      VITE_GRAPHQL_ENDPOINT: /graphql
+      VITE_BACKEND_URL: http://backend:8000
+      VITE_PUSHER_APP_KEY: your_key
+      VITE_PUSHER_APP_CLUSTER: ap2
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ../front-end:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+
+  mysql:
+    image: mysql:8.4
+    container_name: auction-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: auction_db
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_HOST: "%"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: auction-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  backend_vendor:
+  frontend_node_modules:
+  mysql_data:
+  redis_data:

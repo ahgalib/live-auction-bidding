@@ -70,9 +70,12 @@ class GraphqlController extends Controller
         return $this->graphqlData([
             'auction' => [
                 'id' => (string) $auction->id,
+                'title' => $auction->title,
                 'currentPrice' => (float) $auction->current_price,
+                'minIncrement' => (float) $auction->min_increment,
                 'currentWinnerId' => $auction->current_winner_id ? (string) $auction->current_winner_id : null,
                 'endTime' => $auction->end_time?->toIso8601String(),
+                'category' => $auction->category,
                 'status' => $auction->status,
             ],
         ]);
@@ -341,4 +344,3 @@ class GraphqlController extends Controller
         ], 200);
     }
 }
-

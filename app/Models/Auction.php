@@ -12,20 +12,26 @@ class Auction extends Model
     use HasFactory;
 
     protected $fillable = [
+        'title',
         'seller_id',
         'starting_price',
+        'min_increment',
         'current_price',
         'current_winner_id',
         'end_time',
+        'category',
         'status',
     ];
 
     protected function casts(): array
     {
         return [
+            'title' => 'string',
             'starting_price' => 'decimal:2',
+            'min_increment' => 'decimal:2',
             'current_price' => 'decimal:2',
             'end_time' => 'datetime',
+            'category' => 'string',
         ];
     }
 

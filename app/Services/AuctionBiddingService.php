@@ -34,7 +34,8 @@ class AuctionBiddingService
                 return $this->rejectBid('AUCTION_CLOSED', $currentPrice, $auction, $user, $amount, $ipAddress, $requestId);
             }
 
-            if ($amount <= $currentPrice) {
+            $minimumAllowed = $currentPrice + (float) $auction->min_increment;
+            if ($amount < $minimumAllowed) {
                 return $this->rejectBid('LOW_BID', $currentPrice, $auction, $user, $amount, $ipAddress, $requestId);
             }
 
@@ -194,14 +195,15 @@ class AuctionBiddingService
             'current_price' => $currentPrice,
         ]);
 
-        return [
-            'accepted' => false,
-            'error_code' => $errorCode,
-            'current_price' => $currentPrice,
-            'winner_id' => $auction->current_winner_id,
-            'end_time' => CarbonImmutable::parse($auction->end_time)->toIso8601String(),
-            'event_timestamp' => now()->toIso8601String(),
-        ];
+            return [
+                'accepted' => false,
+                'error_code' => $errorCode,
+                'current_price' => $currentPrice,
+                'min_increment' => (float) $auction->min_increment,
+                'winner_id' => $auction->current_winner_id,
+                'end_time' => CarbonImmutable::parse($auction->end_time)->toIso8601String(),
+                'event_timestamp' => now()->toIso8601String(),
+            ];
     }
 
     /**
