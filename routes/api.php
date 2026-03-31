@@ -9,7 +9,6 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/oauth/token', [AuthController::class, 'oauthToken']);
 Route::get('/auctions/{auction}', [AuctionStateController::class, 'show']);
-Route::get('/server-time', [AuctionStateController::class, 'serverTime']);
 
 Route::middleware('oauth')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);

@@ -1,6 +1,7 @@
 type Query {
+  auctions: [Auction!]!
   auction(id: ID!): Auction
-  serverTime: ServerTimePayload!
+  adminAuctions: [Auction!]!
   me: User
 }
 
@@ -17,19 +18,53 @@ type Mutation {
   ): AuthToken!
   placeBid(auctionId: ID!, amount: Float!, requestId: String): PlaceBidResult!
   withdrawBid(auctionId: ID!, reason: String): WithdrawBidResult!
+  createAuction(
+    title: String!
+    description: String
+    startingPrice: Float!
+    minIncrement: Float!
+    endTime: String!
+    category: String!
+    status: String
+  ): Auction!
+  updateAuction(
+    id: ID!
+    title: String
+    description: String
+    startingPrice: Float
+    minIncrement: Float
+    currentPrice: Float
+    endTime: String
+    category: String
+    status: String
+  ): Auction!
+  adjustAuctionTime(id: ID!, deltaMinutes: Int!): AuctionTimeAdjustResult!
+  deleteAuction(id: ID!): Boolean!
   logout: Boolean!
 }
 
 type Auction {
   id: ID!
+  title: String!
+  description: String
+  startingPrice: Float!
   currentPrice: Float!
+  minIncrement: Float!
   currentWinnerId: ID
+  winnerName: String
   endTime: String
+  category: String!
   status: String!
+  participantCount: Int!
+  bids: [BidFeedItem!]!
 }
 
-type ServerTimePayload {
-  serverTimeUtc: String!
+type BidFeedItem {
+  id: ID!
+  amount: Float!
+  status: String!
+  bidderName: String
+  createdAt: String!
 }
 
 type User {
@@ -37,6 +72,7 @@ type User {
   name: String!
   email: String!
   isAdmin: Boolean
+  walletBalance: Float
 }
 
 type AuthToken {
@@ -56,4 +92,10 @@ type WithdrawBidResult {
   success: Boolean!
   restoredPrice: Float!
   restoredWinnerId: ID
+}
+
+type AuctionTimeAdjustResult {
+  id: ID!
+  endTime: String!
+  status: String!
 }

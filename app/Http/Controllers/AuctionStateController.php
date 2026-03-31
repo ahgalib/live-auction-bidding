@@ -17,12 +17,4 @@ class AuctionStateController extends Controller
             'status' => $auction->status,
         ]);
     }
-
-    public function serverTime(): JsonResponse
-    {
-        return response()->json([
-            'server_time_utc' => now()->toIso8601String(),
-            'timestamp_precision' => 'milliseconds',
-        ]);
-    }
 }

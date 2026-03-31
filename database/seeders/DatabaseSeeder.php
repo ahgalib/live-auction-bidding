@@ -50,6 +50,7 @@ class DatabaseSeeder extends Seeder
         $seedAuctions = [
             [
                 'title' => 'iPhone 15 Pro Max (Deep Purple)',
+                'description' => 'Flagship smartphone auction for premium mobile buyers and collectors.',
                 'starting_price' => 900.00,
                 'min_increment' => 10.00,
                 'current_price' => 900.00,
@@ -58,6 +59,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'title' => 'MacBook Air M2 (8GB/256GB)',
+                'description' => 'Lightweight productivity laptop auction for students and remote workers.',
                 'starting_price' => 750.00,
                 'min_increment' => 15.00,
                 'current_price' => 750.00,
@@ -66,6 +68,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'title' => 'Sony WH-1000XM5 Headphones',
+                'description' => 'Noise-cancelling audio gear auction for music and travel enthusiasts.',
                 'starting_price' => 250.00,
                 'min_increment' => 5.00,
                 'current_price' => 250.00,
@@ -79,6 +82,7 @@ class DatabaseSeeder extends Seeder
                 ['title' => $auctionData['title']],
                 [
                     'seller_id' => $admin->id,
+                    'description' => $auctionData['description'],
                     'starting_price' => $auctionData['starting_price'],
                     'min_increment' => $auctionData['min_increment'],
                     'current_price' => $auctionData['current_price'],

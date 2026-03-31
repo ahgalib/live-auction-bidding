@@ -3,11 +3,11 @@
 namespace App\Services;
 
 use App\Events\BidUpdated;
-use App\Jobs\PersistBidLogJob;
 use App\Models\Auction;
 use App\Models\BidLog;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -25,38 +25,61 @@ class AuctionBiddingService
         $lock = Cache::lock($this->lockKey($auction->id), 1);
 
         return $lock->block(1, function () use ($auction, $user, $amount, $ipAddress, $requestId, $startedAt): array {
+            $idempotencyKey = $requestId ? $this->idempotencyKey($auction->id, $user->id, $requestId) : null;
+            if ($idempotencyKey) {
+                $cachedResult = Cache::get($idempotencyKey);
+                if (is_array($cachedResult)) {
+                    return $cachedResult;
+                }
+            }
+
             $auction->refresh();
             [$currentPrice, $endTime] = $this->hydrateLiveState($auction);
 
             if ($auction->status !== 'active' || $endTime->isPast()) {
                 $this->markClosedTtl($auction->id);
 
-                return $this->rejectBid('AUCTION_CLOSED', $currentPrice, $auction, $user, $amount, $ipAddress, $requestId);
+                $result = $this->rejectBid('AUCTION_CLOSED', $currentPrice, $auction, $user, $amount, $ipAddress, $requestId);
+                if ($idempotencyKey) {
+                    Cache::put($idempotencyKey, $result, now()->addMinutes(2));
+                }
+
+                return $result;
             }
 
             $minimumAllowed = $currentPrice + (float) $auction->min_increment;
             if ($amount < $minimumAllowed) {
-                return $this->rejectBid('LOW_BID', $currentPrice, $auction, $user, $amount, $ipAddress, $requestId);
+                $result = $this->rejectBid('LOW_BID', $currentPrice, $auction, $user, $amount, $ipAddress, $requestId);
+                if ($idempotencyKey) {
+                    Cache::put($idempotencyKey, $result, now()->addMinutes(2));
+                }
+
+                return $result;
             }
 
-            $newEndTime = $endTime;
-            if ($endTime->diffInSeconds(CarbonImmutable::now()) <= 30) {
-                $newEndTime = $endTime->addSeconds(60);
-            }
+            // Auction time is controlled by admin actions only and must remain DB-canonical.
+            $newEndTime = CarbonImmutable::parse($auction->end_time)->setTimezone('UTC');
 
             $this->writeLiveState($auction->id, $amount, $user->id, $newEndTime);
 
             $auction->forceFill([
                 'current_price' => $amount,
                 'current_winner_id' => $user->id,
-                'end_time' => $newEndTime,
             ])->save();
 
             $this->dispatchAudit($auction, $user, $amount, 'accepted', $ipAddress, $requestId, [
                 'previous_price' => $currentPrice,
             ]);
 
-            event(new BidUpdated($auction->fresh(), 'bid_accepted', now()->getTimestampMs()));
+            event(new BidUpdated(
+                $auction->fresh(),
+                $user->name,
+                $amount,
+                $newEndTime->toIso8601String(),
+                'bid_accepted',
+                now()->getTimestampMs(),
+                $this->participantCount($auction->id),
+            ));
 
             Log::info('auction.bid.accepted', [
                 'auction_id' => $auction->id,
@@ -66,7 +89,7 @@ class AuctionBiddingService
                 'broadcast_target_ms' => 200,
             ]);
 
-            return [
+            $result = [
                 'accepted' => true,
                 'error_code' => null,
                 'current_price' => $amount,
@@ -74,6 +97,12 @@ class AuctionBiddingService
                 'end_time' => $newEndTime->toIso8601String(),
                 'event_timestamp' => now()->toIso8601String(),
             ];
+
+            if ($idempotencyKey) {
+                Cache::put($idempotencyKey, $result, now()->addMinutes(2));
+            }
+
+            return $result;
         });
     }
 
@@ -114,14 +143,27 @@ class AuctionBiddingService
                 'current_winner_id' => $restoredWinnerId,
             ])->save();
 
-            $this->writeLiveState($auction->id, $restoredPrice, $restoredWinnerId, CarbonImmutable::parse($auction->end_time));
+            $this->writeLiveState(
+                $auction->id,
+                $restoredPrice,
+                $restoredWinnerId,
+                CarbonImmutable::parse($auction->end_time)->setTimezone('UTC')
+            );
 
             $this->dispatchAudit($auction, $admin, $restoredPrice, 'withdrawn', null, null, [
                 'withdrawn_bid_log_id' => $latestAccepted->id,
                 'reason' => $reason,
             ]);
 
-            event(new BidUpdated($auction->fresh(), 'bid_withdrawn', now()->getTimestampMs()));
+            event(new BidUpdated(
+                $auction->fresh(),
+                $admin->name,
+                $restoredPrice,
+                CarbonImmutable::parse($auction->end_time)->setTimezone('UTC')->toIso8601String(),
+                'bid_withdrawn',
+                now()->getTimestampMs(),
+                $this->participantCount($auction->id),
+            ));
 
             return [
                 'success' => true,
@@ -139,26 +181,22 @@ class AuctionBiddingService
     {
         $priceKey = $this->priceKey($auction->id);
         $winnerKey = $this->winnerKey($auction->id);
-        $endTimeKey = $this->endTimeKey($auction->id);
-
         $cachedPrice = Cache::get($priceKey);
-        $cachedEndTime = Cache::get($endTimeKey);
-
-        if ($cachedPrice === null || $cachedEndTime === null) {
+        if ($cachedPrice === null) {
             $this->writeLiveState(
                 $auction->id,
                 (float) $auction->current_price,
                 $auction->current_winner_id,
-                CarbonImmutable::parse($auction->end_time),
+                CarbonImmutable::parse($auction->end_time)->setTimezone('UTC'),
             );
             $cachedPrice = (string) $auction->current_price;
-            $cachedEndTime = CarbonImmutable::parse($auction->end_time)->toIso8601String();
             if ($auction->current_winner_id !== null) {
                 Cache::put($winnerKey, (string) $auction->current_winner_id);
             }
         }
 
-        return [(float) $cachedPrice, CarbonImmutable::parse($cachedEndTime)];
+        // Keep end time DB-canonical to avoid stale cache reversion on bid submissions.
+        return [(float) $cachedPrice, CarbonImmutable::parse($auction->end_time)->setTimezone('UTC')];
     }
 
     private function writeLiveState(int $auctionId, float $price, ?int $winnerId, CarbonImmutable $endTime): void
@@ -201,7 +239,7 @@ class AuctionBiddingService
                 'current_price' => $currentPrice,
                 'min_increment' => (float) $auction->min_increment,
                 'winner_id' => $auction->current_winner_id,
-                'end_time' => CarbonImmutable::parse($auction->end_time)->toIso8601String(),
+                'end_time' => CarbonImmutable::parse($auction->end_time)->setTimezone('UTC')->toIso8601String(),
                 'event_timestamp' => now()->toIso8601String(),
             ];
     }
@@ -222,13 +260,7 @@ class AuctionBiddingService
             'created_at' => now(),
         ];
 
-        if (app()->runningUnitTests()) {
-            BidLog::query()->create($payload);
-
-            return;
-        }
-
-        PersistBidLogJob::dispatchAfterResponse($payload);
+        BidLog::query()->create($payload);
     }
 
     private function lockKey(int $auctionId): string
@@ -249,5 +281,19 @@ class AuctionBiddingService
     private function endTimeKey(int $auctionId): string
     {
         return "auction:{$auctionId}:end_time";
+    }
+
+    private function idempotencyKey(int $auctionId, int $userId, string $requestId): string
+    {
+        return "auction:{$auctionId}:user:{$userId}:request:{$requestId}";
+    }
+
+    private function participantCount(int $auctionId): int
+    {
+        return DB::table('bid_logs')
+            ->where('auction_id', $auctionId)
+            ->where('event_type', 'accepted')
+            ->distinct('user_id')
+            ->count('user_id');
     }
 }

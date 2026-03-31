@@ -13,6 +13,7 @@ class Auction extends Model
 
     protected $fillable = [
         'title',
+        'description',
         'seller_id',
         'starting_price',
         'min_increment',
@@ -27,6 +28,7 @@ class Auction extends Model
     {
         return [
             'title' => 'string',
+            'description' => 'string',
             'starting_price' => 'decimal:2',
             'min_increment' => 'decimal:2',
             'current_price' => 'decimal:2',
